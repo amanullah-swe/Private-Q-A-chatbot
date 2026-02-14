@@ -79,5 +79,5 @@ Ensure you have your **Google API Key** ready.
 
 Developed by **Shaikh Amanullah**, a Full-Stack Developer and AI Solutions Architect specializing in Agentic AI and sophisticated web applications. 
 
-- **Portfolio**: [amanullah.dev](https://amanullah.dev)
+<!-- - **Portfolio**: [amanullah.dev](#) -->
 - **Specialization**: RAG Systems, MERN Stack, Next.js, and Agentic AI Workflows.
