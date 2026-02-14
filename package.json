@@ -1,0 +1,45 @@
+{
+  "name": "private-knowledge-qa",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@langchain/community": "^0.0.32",
+    "@langchain/core": "^1.1.24",
+    "@langchain/google-genai": "^2.1.18",
+    "@langchain/openai": "^0.0.14",
+    "@types/uuid": "^10.0.0",
+    "clsx": "^2.1.0",
+    "langchain": "^0.1.37",
+    "lucide-react": "^0.331.0",
+    "mammoth": "^1.11.0",
+    "next": "14.1.0",
+    "openai": "^4.104.0",
+    "pdf-parse": "^1.1.1",
+    "pg": "^8.18.0",
+    "react": "^18",
+    "react-dom": "^18",
+    "reflect-metadata": "^0.2.2",
+    "tailwind-merge": "^2.2.1",
+    "typeorm": "^0.3.28",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/pdf-parse": "^1.1.5",
+    "@types/pg": "^8.16.0",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "autoprefixer": "^10.0.1",
+    "eslint": "^8",
+    "eslint-config-next": "14.1.0",
+    "postcss": "^8",
+    "tailwindcss": "^3.3.0",
+    "typescript": "^5"
+  }
+}
