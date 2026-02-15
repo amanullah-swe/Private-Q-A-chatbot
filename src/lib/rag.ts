@@ -12,6 +12,9 @@ export interface RAGStatus {
 const pgConfig = {
     postgresConnectionOptions: {
         connectionString: process.env.POSTGRES_URL,
+        ssl: {
+            rejectUnauthorized: false
+        }
     },
     tableName: "document_vectors",
     columns: {
@@ -33,7 +36,7 @@ export async function getVectorStore() {
 
 export async function deleteDocumentFromStore(id: string) {
     try {
-        await query("DELETE FROM document_vectors WHERE cmetadata->>'doc_id' = $1", [id]);
+        await query("DELETE FROM document_vectors WHERE metadata->>'doc_id' = $1", [id]);
         console.log(`Deleted vectors for doc ${id}`);
     } catch (e) {
         console.error("Error deleting vectors:", e);

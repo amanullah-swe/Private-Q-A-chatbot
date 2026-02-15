@@ -2,6 +2,9 @@ import { Pool } from 'pg';
 
 const pool = new Pool({
     connectionString: process.env.POSTGRES_URL,
+    ssl: {
+        rejectUnauthorized: false
+    }
 });
 
 export async function query(text: string, params?: any[]) {
@@ -9,6 +12,15 @@ export async function query(text: string, params?: any[]) {
 }
 
 export async function initDB() {
+    // Create chats table
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS chats (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            title TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+    `);
+
     // Create documents table if not exists
     await pool.query(`
         CREATE TABLE IF NOT EXISTS documents (
@@ -36,6 +48,16 @@ export async function initDB() {
     await pool.query('CREATE EXTENSION IF NOT EXISTS vector;');
 
     console.log("Database initialized");
+}
+
+export async function checkDbConnectivity() {
+    try {
+        await pool.query('SELECT 1');
+        return 'OK';
+    } catch (e) {
+        console.error("Database health check failed:", e);
+        return 'Error';
+    }
 }
 
 export default pool;

@@ -1,7 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     output: "standalone",
-    serverExternalPackages: ["pdf-parse", "mammoth"],
+    experimental: {
+        serverComponentsExternalPackages: ["pdf-parse", "mammoth"],
+    },
     webpack: (config, { isServer }) => {
         if (isServer) {
             // Prevent pdf-parse from being bundled (it tries to open test files)

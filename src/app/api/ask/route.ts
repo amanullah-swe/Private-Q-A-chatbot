@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { queryDocuments } from "@/lib/rag";
 import { addMessage, getHistory } from "@/lib/chat";
+import { getDocuments } from "@/lib/storage";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { PromptTemplate } from "@langchain/core/prompts";
 import { StringOutputParser } from "@langchain/core/output_parsers";
@@ -17,6 +18,12 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Google API Key not configured" }, { status: 500 });
         }
 
+        // 0. Check if any documents exist
+        const allDocs = await getDocuments();
+        if (allDocs.length === 0) {
+            return NextResponse.json({ error: "No documents uploaded. Please upload a file first." }, { status: 400 });
+        }
+
         // 1. Retrieve relevant docs via similarity search
         const docs = await queryDocuments(question);
 
@@ -26,9 +33,8 @@ export async function POST(req: NextRequest) {
 
         if (!context) {
             return NextResponse.json({
-                answer: "I don't know (No documents uploaded).",
-                sources: []
-            });
+                error: "I couldn't find any relevant information in your documents for this question."
+            }, { status: 400 });
         }
 
         // 2. Build chat history context
@@ -97,6 +103,10 @@ Answer:
                     });
 
                     for await (const chunk of streamResult) {
+                        if (req.signal.aborted) {
+                            controller.close();
+                            return;
+                        }
                         fullAnswer += chunk;
                         // Send text chunk
                         controller.enqueue(
@@ -110,22 +120,32 @@ Answer:
                     }
 
                     // Send sources as final event
-                    controller.enqueue(
-                        encoder.encode(`data: ${JSON.stringify({ type: 'sources', content: sources })}\n\n`)
-                    );
+                    if (!req.signal.aborted) {
+                        controller.enqueue(
+                            encoder.encode(`data: ${JSON.stringify({ type: 'sources', content: sources })}\n\n`)
+                        );
+                    }
 
                     // Send done signal
-                    controller.enqueue(
-                        encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
-                    );
-
-                    controller.close();
-                } catch (error) {
+                    if (!req.signal.aborted) {
+                        controller.enqueue(
+                            encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
+                        );
+                        controller.close();
+                    }
+                } catch (error: any) {
                     console.error("Streaming error:", error);
-                    controller.enqueue(
-                        encoder.encode(`data: ${JSON.stringify({ type: 'error', content: 'Failed to generate answer' })}\n\n`)
-                    );
-                    controller.close();
+                    // Only try to send error if controller is still valid and client hasn't disconnected
+                    if (!req.signal.aborted) {
+                        try {
+                            controller.enqueue(
+                                encoder.encode(`data: ${JSON.stringify({ type: 'error', content: 'Failed to generate answer' })}\n\n`)
+                            );
+                            controller.close();
+                        } catch (e) {
+                            // Ignore error if controller is already closed
+                        }
+                    }
                 }
             }
         });
