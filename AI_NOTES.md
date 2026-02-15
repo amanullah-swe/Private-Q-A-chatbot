@@ -1,38 +1,60 @@
-# AI Implementation Notes
+# AI Implementation & Architecture Notes
 
-## 🛠️ Verified & Used Tools
-- **LangChain.js**: Core orchestration for the RAG pipeline.
-- **Google Gemini**:
-    - `gemini-2.0-flash` / `gemini-3-flash-preview`: Fast streaming LLMs for conversational answers.
-    - `gemini-embedding-001`: High-performance text vectorization.
-- **PGVectorStore**: Integrated vector store using PostgreSQL's `pgvector` extension for persistent storage.
-- **Parsers**:
-    - `pdf-parse`: Local PDF text extraction (dynamically imported for build compatibility).
-    - `mammoth`: High-fidelity DOCX text extraction.
+## 🏛️ System Architecture
+The application follows a modular RAG (Retrieval-Augmented Generation) architecture designed for security, persistence, and real-time interaction.
 
-## 🏛️ Architecture Decisions
-- **Persistent Storage**: Migrated vectors to PostgreSQL to ensure data survives container restarts and app rebuilds.
-- **Streaming (SSE)**: Implemented Server-Sent Events to stream AI responses token-by-token, significantly improving user experience.
-- **Conversation Memory**: Stored in a `chat_sessions` SQL table, enabling multi-turn conversations and follow-up questions.
-- **Build Optimization**: Configured `webpack.externals` and `serverExternalPackages` to handle native Node.js dependencies like `pdf-parse`.
+```mermaid
+graph TD
+    User((User)) -->|Upload Documents| Ingest[Ingestion Service]
+    User -->|Ask Question| Query[Query Service]
+    
+    subgraph Ingestion Pipeline
+        Ingest -->|Parse| Parsers[pdf-parse / mammoth]
+        Parsers -->|Chunk| Splitter[RecursiveCharacterTextSplitter]
+        Splitter -->|Embed| Embedder[gemini-embedding-001]
+        Embedder -->|Store| PG[PostgreSQL + pgvector]
+    end
+    
+    subgraph Retrieval Pipeline
+        Query -->|Embed Query| Embedder
+        Embedder -->|Similarity Search| PG
+        PG -->|Context Chunks| Generator[Gemini 3 Flash Preview]
+        Generator -->|SSE Stream| User
+    end
+    
+    subgraph Memory
+        Generator -->|Save Message| ChatDB[(Chat Sessions DB)]
+        ChatDB -->|Fetch History| Generator
+    end
+```
 
-## 📝 Prompt History (Development Stages)
+## 🛠️ Technical Specifications
 
-### Phase 1: Foundation
-> "Create a Next.js App Router project with TypeScript and Tailwind CSS. Setup a RAG utility that chunks text files, embeds them using Gemini, and stores them in PostgreSQL with pgvector."
+### 1. Ingestion Strategy
+- **File Parsing**: 
+    - `pdf-parse`: Handles PDF extraction. Dynamically imported to prevent build-time native binary conflicts.
+    - `mammoth`: Standard-compliant DOCX to text conversion.
+- **Chunking Logic**: 
+    - **Chunk Size**: 500 characters.
+    - **Overlap**: 100 characters.
+    - **Strategy**: Semantic boundary detection using `RecursiveCharacterTextSplitter` to maintain technical context.
 
-### Phase 2: Multi-Format Support
-> "Extend the parser to support .pdf (using pdf-parse), .docx (using mammoth), and .md files. Create a unified `parseFile` utility and update the document storage logic to handle blobs."
+### 2. Vector Storage (PostgreSQL + pgvector)
+- **Model**: `gemini-embedding-001` (768 dimensions).
+- **Extension**: Using `pgvector` for native HNSW/IVFFlat indexing support.
+- **Persistence**: Unlike Chroma or Pinecone in local mode, this setup ensures vectors persist across container restarts.
 
-### Phase 3: Streaming & UI
-> "Implement streaming answers from Gemini. Update the React frontend to use a `ReadableStream` and show a typing cursor. Add file-type icons (📕, 📘, 📗) in the document list."
+### 3. Generation & Memory
+- **Model**: `gemini-3-flash-preview` chosen for its massive context window and rapid token generation.
+- **SSE (Server-Sent Events)**: Responses are streamed using typed JSON chunks:
+    - `TEXT`: Incremental answer fragments.
+    - `SOURCES`: Metadata about retrieved document chunks for transparency.
+- **Session Focus**: Multi-turn memory is managed via a `chat_sessions` table, preventing context drift in long conversations.
 
-### Phase 4: Chat Memory
-> "Create a `chat_sessions` table to store message history. Update the `/api/ask` route to fetch history, include it in the Gemini prompt, and save new messages to enable context-aware follow-ups."
+### 4. Hallucination Guardrails
+- **Grounding**: The system prompt explicitly restricts the LLM to provided context.
+- **Fallback**: Gemini is instructed to respond with "I don't have enough information in the provided documents" if no relevant chunks are found.
 
-### Phase 5: Error UX & Deployment
-> "Implement a global Error Boundary, toast notifications for API success/errors, and a health banner. Optimize the Dockerfile for standalone output and dev volumes."
-
-## 🔬 Technical Nuances
-- **hallucination-guard**: Explicitly instructs Gemini to only answer based on provided context and admit when it doesn't know.
-- **SSE Parsing**: Handles interleaved text fragments and source metadata in a single stream using typed JSON chunks.
+## 🔬 Optimization Notes
+- **Webpack Externals**: Configured to handle native Node.js libraries in the Next.js server environment.
+- **Standalone Docker**: Optimized for minimal image size (alpine-based) with isolated database persistence.
