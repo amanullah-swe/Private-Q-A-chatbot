@@ -45,6 +45,11 @@ Discard ephemeral stores for a robust, persistent vector database.
 
 ---
 
+## 🚀 Live Demo
+Check out the live application here: **[private-q-a-chatbot.vercel.app](https://private-q-a-chatbot.vercel.app/)**
+
+---
+
 ## 🚀 Quick Start (Dockerized)
 
 Ensure you have your **Google API Key** ready.
